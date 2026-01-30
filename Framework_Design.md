@@ -90,37 +90,47 @@ CCG 特定参数:
 
 ### 4.3 参数 CSV 文件格式
 
-通过 `--params-csv` 参数可以传入自定义的 **模式成本 (cost)** 和 **工期偏差 (deviation)**。
+通过 `--params-csv` 参数可以传入自定义的 **模式成本 (cost)** 和 **工期偏差 (u_abs)**。
 
-**CSV 格式要求：**
+**CSV 格式要求（与 `mrcpsp_toy_mode_meta.csv` 保持一致）：**
 
 | 列名 | 说明 |
 |------|------|
-| `job` | 任务编号（从 0 开始，包含 dummy source=0 和 sink=n+1） |
-| `mode` | 模式编号（从 0 开始） |
+| `jobnr` | 任务编号（从 1 开始，1 是 dummy source，n+2 是 dummy sink） |
+| `mode` | 模式编号（从 1 开始） |
+| `barT` | 名义工期（nominal duration） |
+| `maxT` | 最大工期（barT + u_abs） |
+| `u_abs` | 最大工期偏差（绝对值） |
 | `cost` | 该模式的成本 |
-| `deviation` | 该模式的最大工期偏差 |
+| `Rreq` | 资源需求（可选） |
 
 **示例文件 `params_example.csv`：**
 
 ```csv
-job,mode,cost,deviation
-0,0,0,0
-1,0,10,1
-1,1,20,2
-2,0,5,1
-2,1,15,3
-2,2,25,1
-3,0,8,0
-3,1,0,1
-...
+jobnr,mode,barT,maxT,u_abs,cost,Rreq
+1,1,0,0,0,0,0
+2,1,3,4,1,9,6
+2,2,9,10,1,0,5
+3,1,3,4,1,0,9
+3,2,5,8,3,2,7
+3,3,7,8,1,0,6
+4,1,4,4,0,8,9
+4,2,10,11,1,0,4
+5,1,2,4,2,8,2
+5,2,5,6,1,0,2
+6,1,3,4,1,10,5
+6,2,7,8,1,0,5
+7,1,2,3,1,6,2
+7,2,6,7,1,0,1
+8,1,0,0,0,0,0
 ```
 
 **说明：**
-- `job=0` 是 dummy source（虚拟起点），通常 cost=0, deviation=0
-- `job=n+1` 是 dummy sink（虚拟终点），通常 cost=0, deviation=0
-- 中间的 `job=1` 到 `job=n` 是实际任务
+- `jobnr=1` 是 dummy source（虚拟起点），通常 cost=0, u_abs=0
+- `jobnr=n+2` 是 dummy sink（虚拟终点），通常 cost=0, u_abs=0
+- 中间的 `jobnr=2` 到 `jobnr=n+1` 是实际任务
 - 每个任务可以有多个模式，每个模式一行
+- `u_abs` 表示工期不确定性的绝对上界，即实际工期可能在 `[barT, barT + u_abs]` 范围内
 
 ### 4.4 使用示例
 

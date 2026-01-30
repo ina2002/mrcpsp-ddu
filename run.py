@@ -47,34 +47,55 @@ from ccg import build_instance_from_psplib_json, Variant2Solver
 
 def load_params_csv(csv_path: str) -> Tuple[Dict[int, List[float]], Dict[int, List[int]]]:
     """
-    从 CSV 文件加载 cost 和 deviation 参数。
+    从 CSV 文件加载 cost 和 deviation (u_abs) 参数。
     
-    CSV 格式要求：
-    - 必须包含列: job, mode, cost, deviation
-    - job: 任务编号（从 0 开始，包含 dummy source 和 sink）
-    - mode: 模式编号（从 0 开始）
+    CSV 格式要求（与 mrcpsp_toy_mode_meta.csv 保持一致）：
+    - 必须包含列: jobnr, mode, cost, u_abs (或 maxT-barT 作为 deviation)
+    - jobnr: 任务编号（从 1 开始，1 是 dummy source，n+2 是 dummy sink）
+    - mode: 模式编号（从 1 开始）
     - cost: 该模式的成本
-    - deviation: 该模式的最大工期偏差
+    - u_abs: 该模式的最大工期偏差（绝对值）
     
     :param csv_path: CSV 文件路径
-    :return: (cost_dict, deviation_dict) 两个字典
+    :return: (cost_dict, deviation_dict) 两个字典，键为 0-based job 索引
     """
     cost_dict: Dict[int, List[float]] = {}
     deviation_dict: Dict[int, List[int]] = {}
     
     with open(csv_path, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
+        fieldnames = set(reader.fieldnames or [])
         
-        # 检查必需的列
-        required_cols = {'job', 'mode', 'cost', 'deviation'}
-        if not required_cols.issubset(set(reader.fieldnames or [])):
-            raise ValueError(f"CSV 文件必须包含以下列: {required_cols}")
+        # 检查必需的列（支持两种格式）
+        # 格式 1: jobnr, mode, cost, u_abs (用户原有格式)
+        # 格式 2: job, mode, cost, deviation (新格式)
+        use_original_format = 'jobnr' in fieldnames
+        
+        if use_original_format:
+            required_cols = {'jobnr', 'mode', 'cost', 'u_abs'}
+            if not required_cols.issubset(fieldnames):
+                raise ValueError(f"CSV 文件必须包含以下列: {required_cols}")
+        else:
+            required_cols = {'job', 'mode', 'cost', 'deviation'}
+            if not required_cols.issubset(fieldnames):
+                raise ValueError(f"CSV 文件必须包含以下列: {required_cols} 或 {{'jobnr', 'mode', 'cost', 'u_abs'}}")
         
         for row in reader:
-            job = int(row['job'])
-            mode = int(row['mode'])
-            cost = float(row['cost'])
-            deviation = int(row['deviation'])
+            if use_original_format:
+                # 原有格式: jobnr 从 1 开始, mode 从 1 开始
+                jobnr = int(row['jobnr'])
+                mode = int(row['mode'])
+                cost = float(row['cost'])
+                deviation = int(row['u_abs'])
+                # 转换为 0-based 索引
+                job = jobnr - 1
+                mode_idx = mode - 1
+            else:
+                # 新格式: job 从 0 开始, mode 从 0 开始
+                job = int(row['job'])
+                mode_idx = int(row['mode'])
+                cost = float(row['cost'])
+                deviation = int(row['deviation'])
             
             # 初始化列表
             if job not in cost_dict:
@@ -82,12 +103,12 @@ def load_params_csv(csv_path: str) -> Tuple[Dict[int, List[float]], Dict[int, Li
                 deviation_dict[job] = []
             
             # 确保模式按顺序添加
-            while len(cost_dict[job]) <= mode:
+            while len(cost_dict[job]) <= mode_idx:
                 cost_dict[job].append(0.0)
                 deviation_dict[job].append(0)
             
-            cost_dict[job][mode] = cost
-            deviation_dict[job][mode] = deviation
+            cost_dict[job][mode_idx] = cost
+            deviation_dict[job][mode_idx] = deviation
     
     return cost_dict, deviation_dict
 
