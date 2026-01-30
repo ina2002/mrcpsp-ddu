@@ -17,24 +17,96 @@ run.py - 统一入口脚本
     # 使用 Benders 算法求解
     python run.py --input mrcpsp_toy_example.mm --algorithm benders --gamma 2
 
-    # 指定时间限制和详细输出
-    python run.py --input mrcpsp_toy_example.mm --algorithm benders --gamma 2 --time-limit 120 --verbose
+    # 使用 CSV 文件指定 cost 和 deviations
+    python run.py --input mrcpsp_toy_example.mm --algorithm benders --gamma 2 --params-csv params.csv
+
+CSV 文件格式（params.csv）：
+    job,mode,cost,deviation
+    0,0,0,0
+    1,0,10,1
+    1,1,20,2
+    ...
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import sys
 import os
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, Tuple
 
 # 导入项目模块
 from translate import parse_psplib_mm, save_json
 import mrcpsp
 from benders import Benders
 from ccg import build_instance_from_psplib_json, Variant2Solver
+
+
+def load_params_csv(csv_path: str) -> Tuple[Dict[int, List[float]], Dict[int, List[int]]]:
+    """
+    从 CSV 文件加载 cost 和 deviation 参数。
+    
+    CSV 格式要求：
+    - 必须包含列: job, mode, cost, deviation
+    - job: 任务编号（从 0 开始，包含 dummy source 和 sink）
+    - mode: 模式编号（从 0 开始）
+    - cost: 该模式的成本
+    - deviation: 该模式的最大工期偏差
+    
+    :param csv_path: CSV 文件路径
+    :return: (cost_dict, deviation_dict) 两个字典
+    """
+    cost_dict: Dict[int, List[float]] = {}
+    deviation_dict: Dict[int, List[int]] = {}
+    
+    with open(csv_path, 'r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        
+        # 检查必需的列
+        required_cols = {'job', 'mode', 'cost', 'deviation'}
+        if not required_cols.issubset(set(reader.fieldnames or [])):
+            raise ValueError(f"CSV 文件必须包含以下列: {required_cols}")
+        
+        for row in reader:
+            job = int(row['job'])
+            mode = int(row['mode'])
+            cost = float(row['cost'])
+            deviation = int(row['deviation'])
+            
+            # 初始化列表
+            if job not in cost_dict:
+                cost_dict[job] = []
+                deviation_dict[job] = []
+            
+            # 确保模式按顺序添加
+            while len(cost_dict[job]) <= mode:
+                cost_dict[job].append(0.0)
+                deviation_dict[job].append(0)
+            
+            cost_dict[job][mode] = cost
+            deviation_dict[job][mode] = deviation
+    
+    return cost_dict, deviation_dict
+
+
+def dict_to_list(d: Dict[int, List], n_jobs: int) -> List[List]:
+    """
+    将字典格式转换为列表格式。
+    
+    :param d: 字典 {job_id: [values]}
+    :param n_jobs: 任务总数
+    :return: 列表 [[values], ...]
+    """
+    result = []
+    for j in range(n_jobs):
+        if j in d:
+            result.append(d[j])
+        else:
+            result.append([0])  # 默认值
+    return result
 
 
 def solve_with_benders(
@@ -53,10 +125,10 @@ def solve_with_benders(
     :param mm_file: PSPLIB .mm 文件路径
     :param gamma: 鲁棒性参数 Gamma
     :param time_limit: 时间限制（秒）
-    :param uncertainty_level: 不确定性水平（默认 0.7）
+    :param uncertainty_level: 不确定性水平（默认 0.7，仅在未提供 deviations 时使用）
     :param e_over: 工期惩罚系数
-    :param cost: 模式成本（可选）
-    :param deviations: 工期偏差（可选）
+    :param cost: 模式成本（列表格式）
+    :param deviations: 工期偏差（字典格式）
     :param verbose: 是否打印详细日志
     :return: 求解结果字典
     """
@@ -197,7 +269,7 @@ def main():
 示例:
   python run.py --input mrcpsp_toy_example.mm --algorithm ccg --gamma 2
   python run.py --input mrcpsp_toy_example.mm --algorithm benders --gamma 2 --time-limit 60
-  python run.py --input mrcpsp_toy_example.mm --algorithm benders --gamma 2 --verbose
+  python run.py --input mrcpsp_toy_example.mm --algorithm benders --gamma 2 --params-csv params.csv
         """
     )
     
@@ -231,6 +303,12 @@ def main():
         help="输出结果到 JSON 文件（可选）"
     )
     
+    # 参数 CSV 文件（用于传入 cost 和 deviation）
+    parser.add_argument(
+        "--params-csv", "-p",
+        help="参数 CSV 文件路径，包含 cost 和 deviation（格式: job,mode,cost,deviation）"
+    )
+    
     # Benders 特定参数
     parser.add_argument(
         "--time-limit", "-t",
@@ -242,7 +320,7 @@ def main():
         "--uncertainty-level", "-u",
         type=float,
         default=0.7,
-        help="Benders 算法不确定性水平（默认: 0.7）"
+        help="Benders 算法不确定性水平（默认: 0.7，仅在未提供 params-csv 时使用）"
     )
     
     # CCG 特定参数
@@ -272,6 +350,27 @@ def main():
         print(f"错误: 输入文件 '{args.input}' 不存在！", file=sys.stderr)
         sys.exit(1)
     
+    # 加载参数 CSV（如果提供）
+    cost = None
+    deviations = None
+    if args.params_csv:
+        if not os.path.exists(args.params_csv):
+            print(f"错误: 参数 CSV 文件 '{args.params_csv}' 不存在！", file=sys.stderr)
+            sys.exit(1)
+        
+        print(f"正在从 {args.params_csv} 加载 cost 和 deviation 参数...")
+        cost_dict, deviation_dict = load_params_csv(args.params_csv)
+        
+        # 获取任务数量
+        instance = mrcpsp.load_nominal_mrcpsp(args.input)
+        n_jobs = len(instance.V)
+        
+        # 转换格式
+        cost = dict_to_list(cost_dict, n_jobs)
+        deviations = deviation_dict
+        
+        print(f"  已加载 {len(cost_dict)} 个任务的参数")
+    
     print(f"正在使用 {args.algorithm.upper()} 算法求解 {args.input}...")
     print(f"参数: Gamma={args.gamma}, e_over={args.e_over}")
     
@@ -283,6 +382,8 @@ def main():
                 time_limit=args.time_limit,
                 uncertainty_level=args.uncertainty_level,
                 e_over=args.e_over,
+                cost=cost,
+                deviations=deviations,
                 verbose=args.verbose
             )
         else:  # ccg

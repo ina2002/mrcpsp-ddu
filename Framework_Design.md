@@ -77,17 +77,52 @@ python run.py --input <mm文件> --algorithm benders --gamma <Gamma值>
   --verbose, -v         打印详细求解日志
   --output, -o          输出结果到 JSON 文件
   --e-over              工期惩罚系数（默认: 1.0）
+  --params-csv, -p      参数 CSV 文件，包含 cost 和 deviation（见下文格式说明）
 
 Benders 特定参数:
   --time-limit, -t      时间限制，单位秒（默认: 60）
-  --uncertainty-level   不确定性水平（默认: 0.7）
+  --uncertainty-level   不确定性水平（默认: 0.7，仅在未提供 params-csv 时使用）
 
 CCG 特定参数:
   --max-iter            最大迭代次数（默认: 50）
   --mode-meta           模式元数据 CSV 文件路径
 ```
 
-### 4.3 使用示例
+### 4.3 参数 CSV 文件格式
+
+通过 `--params-csv` 参数可以传入自定义的 **模式成本 (cost)** 和 **工期偏差 (deviation)**。
+
+**CSV 格式要求：**
+
+| 列名 | 说明 |
+|------|------|
+| `job` | 任务编号（从 0 开始，包含 dummy source=0 和 sink=n+1） |
+| `mode` | 模式编号（从 0 开始） |
+| `cost` | 该模式的成本 |
+| `deviation` | 该模式的最大工期偏差 |
+
+**示例文件 `params_example.csv`：**
+
+```csv
+job,mode,cost,deviation
+0,0,0,0
+1,0,10,1
+1,1,20,2
+2,0,5,1
+2,1,15,3
+2,2,25,1
+3,0,8,0
+3,1,0,1
+...
+```
+
+**说明：**
+- `job=0` 是 dummy source（虚拟起点），通常 cost=0, deviation=0
+- `job=n+1` 是 dummy sink（虚拟终点），通常 cost=0, deviation=0
+- 中间的 `job=1` 到 `job=n` 是实际任务
+- 每个任务可以有多个模式，每个模式一行
+
+### 4.4 使用示例
 
 ```bash
 # 示例 1: 使用 Benders 算法，Gamma=2，时间限制 60 秒
@@ -96,7 +131,10 @@ python run.py -i mrcpsp_toy_example.mm -a benders -g 2 -t 60
 # 示例 2: 使用 CCG 算法，带模式元数据
 python run.py -i mrcpsp_toy_example.mm -a ccg -g 2 --mode-meta mrcpsp_toy_mode_meta.csv
 
-# 示例 3: 详细输出并保存结果到 JSON
+# 示例 3: 使用 CSV 文件传入 cost 和 deviation
+python run.py -i mrcpsp_toy_example.mm -a benders -g 2 -p params_example.csv
+
+# 示例 4: 详细输出并保存结果到 JSON
 python run.py -i mrcpsp_toy_example.mm -a benders -g 2 -v -o result.json
 ```
 
