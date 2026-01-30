@@ -21,7 +21,7 @@ import time
 # =========================================================
 CONFIG = {
     # PSPLIB .mm/.bas 文件路径（相对/绝对均可）
-    "mm_path": r"instances/j30.mm/j301_1.mm",
+    "mm_path": 'mrcpsp_toy_example.mm' ,
 
     # DDU 预算不确定集参数
     "Gamma": 2,
@@ -31,7 +31,7 @@ CONFIG = {
 
     # （可选）toy接口：若提供该CSV，则直接读取指定的 u_abs(偏离上界) 与 cost(模式成本)
     # 若为 None，则保持原逻辑：u_min/u_max 随机生成偏离，cost 按资源工时价计算
-    "mode_meta_csv": None,
+    "mode_meta_csv": 'mrcpsp_toy_mode_meta.csv',
     # 用于生成 u 的相对范围（内部会转为绝对偏差：u_abs = bar_d * u_rel）
     "u_max": 0.5,
     "u_min": 0.2,
