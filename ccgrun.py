@@ -10,28 +10,44 @@ ccgrun.py
 """
 
 from __future__ import annotations
-
+from generate_mode_meta import generate_mode_meta_from_mm
 from pathlib import Path
 import json
 import time
+
+ 
+
+
+
+ 
 
 
 # =========================================================
 # ✅ 在这里直接改参数（然后点运行）
 # =========================================================
+ 
+ 
+
+mm_path = r'instances\j30.mm\j301_2.mm'
+mode_meta_csv, deviations, cost = generate_mode_meta_from_mm(mm_path, seed=42)
+
+#保存
 CONFIG = {
     # PSPLIB .mm/.bas 文件路径（相对/绝对均可）
-    "mm_path": 'mrcpsp_toy_example.mm' ,
+    "mm_path": mm_path  ,
 
     # DDU 预算不确定集参数
-    "Gamma": 2,
+    "Gamma":2,
 
     # 工期货币化成本 e
-    "e_overhead": 2,
+    "e_overhead":1,
 
     # （可选）toy接口：若提供该CSV，则直接读取指定的 u_abs(偏离上界) 与 cost(模式成本)
     # 若为 None，则保持原逻辑：u_min/u_max 随机生成偏离，cost 按资源工时价计算
-    "mode_meta_csv": 'mrcpsp_toy_mode_meta.csv',
+ 
+
+ 
+    "mode_meta_csv":mode_meta_csv ,#修改34行，调用generate_mode_meta对mm_path输出一个csv，就不需要我额外制定了
     # 用于生成 u 的相对范围（内部会转为绝对偏差：u_abs = bar_d * u_rel）
     "u_max": 0.5,
     "u_min": 0.2,
@@ -54,8 +70,8 @@ CONFIG = {
     # 也支持传目录：r"out_json/"，会自动用 mm 同名 json
     "json_out": None,
 }
-
-
+ 
+ 
 def main():
     t0_total = time.perf_counter()
 

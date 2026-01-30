@@ -40,13 +40,36 @@ def solve(nominal_data_file, Gamma, time_limit,cost,e_over, max_durational_devia
     print("modes:", benders_sol['modes'])
     print("network:", benders_sol['network'])
     print("resource flows:", benders_sol['flows'])
-
+from generate_mode_meta import generate_mode_meta_from_mm
+import csv
 
 if __name__ == "__main__":
+    test_instance = r'instances\j30.mm\j301_2.mm'
+     
+    csv_path, deviations, cost = generate_mode_meta_from_mm(test_instance, seed=42)
+    # 从 CSV 读取 deviations 和 cost，jobnr 减 1
+    deviations = {}
+    cost = []
+    with open(csv_path, 'r') as f:
+        reader = csv.DictReader(f)
+        current_job = None
+        job_costs = []
+        for row in reader:
+            jobnr = int(row['jobnr']) - 1  # jobnr 减 1
+            if jobnr not in deviations:
+                deviations[jobnr] = []
+            deviations[jobnr].append(int(row['u_abs']))
+            
+            if current_job != jobnr:
+                if job_costs:
+                    cost.append(job_costs)
+                job_costs = []
+                current_job = jobnr
+            job_costs.append(int(row['cost']))
+        if job_costs:
+            cost.append(job_costs)
+        
  
-
-    test_instance = 'mrcpsp_toy_example.mm'
-    deviations ={0:[0],1:[1,1],2:[1,3,1],3:[0,1],4:[2,1],5:[1,1],6:[1,1],7:[0]}
-    cost = [[0],[0,0],[0,0,0],[0,0],[0,0],[0,0],[0,0],[0]]
+    
     e_over = 1
-    solve(test_instance, 2, 60, max_durational_deviations=deviations, cost=cost,e_over=e_over,print_log=False)
+    solve(test_instance, 2, 600, max_durational_deviations=deviations, cost=cost, e_over=e_over, print_log=True)
