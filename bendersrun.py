@@ -44,7 +44,7 @@ from generate_mode_meta import generate_mode_meta_from_mm
 import csv
 
 if __name__ == "__main__":
-    test_instance = r'instances\j30.mm\j301_2.mm'
+    test_instance = r'instances\j20.mm\j209_6.mm'
      
     csv_path, deviations, cost = generate_mode_meta_from_mm(test_instance, seed=42)
     # 从 CSV 读取 deviations 和 cost，jobnr 减 1
@@ -72,4 +72,4 @@ if __name__ == "__main__":
  
     
     e_over = 1
-    solve(test_instance, 2, 600, max_durational_deviations=deviations, cost=cost, e_over=e_over, print_log=True)
+    solve(test_instance, 10, 600, max_durational_deviations=deviations, cost=cost, e_over=e_over, print_log=True)

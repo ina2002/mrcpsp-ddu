@@ -14,7 +14,7 @@ from generate_mode_meta import generate_mode_meta_from_mm
 from pathlib import Path
 import json
 import time
-
+import ccg 
  
 
 
@@ -25,10 +25,7 @@ import time
 # =========================================================
 # ✅ 在这里直接改参数（然后点运行）
 # =========================================================
- 
- 
-
-mm_path = r'instances\j30.mm\j301_2.mm'
+mm_path = r'instances\j20.mm\j209_6.mm'
 mode_meta_csv, deviations, cost = generate_mode_meta_from_mm(mm_path, seed=42)
 
 #保存
@@ -37,7 +34,7 @@ CONFIG = {
     "mm_path": mm_path  ,
 
     # DDU 预算不确定集参数
-    "Gamma":2,
+    "Gamma":10,
 
     # 工期货币化成本 e
     "e_overhead":1,
@@ -124,9 +121,9 @@ def main():
     if str(script_dir) not in sys.path:
         sys.path.insert(0, str(script_dir))
 
-    import ccg as ccg_mod  # ✅ 直接导入 ccg
+     
 
-    inst = ccg_mod.build_instance_from_psplib_json(
+    inst = ccg.build_instance_from_psplib_json(
         data=data,
         Gamma=Gamma,
         e_overhead=e_overhead,
@@ -137,7 +134,7 @@ def main():
         use_flow=use_flow,
         mode_meta_csv=mode_meta_csv,
     )
-    solver = ccg_mod.Variant2Solver(
+    solver = ccg.Variant2Solver(
         inst=inst,
         tol=tol,
         max_iter=max_iter,
